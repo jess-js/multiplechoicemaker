@@ -9,6 +9,15 @@ const nameLabelInput = document.getElementById("nameLabel");
 const dateLabelInput = document.getElementById("dateLabel");
 const includeAnswerKeyInput = document.getElementById("includeAnswerKey");
 
+const liveInputs = [
+  titleInput,
+  subtitleInput,
+  watermarkInput,
+  nameLabelInput,
+  dateLabelInput,
+  includeAnswerKeyInput
+];
+
 document.getElementById("addQuestionBtn").addEventListener("click", () => addQuestion());
 document.getElementById("previewBtn").addEventListener("click", renderPreview);
 document.getElementById("printBtn").addEventListener("click", () => {
@@ -17,7 +26,7 @@ document.getElementById("printBtn").addEventListener("click", () => {
 });
 document.getElementById("downloadPdfBtn").addEventListener("click", downloadPdf);
 
-[titleInput, subtitleInput, watermarkInput, nameLabelInput, dateLabelInput, includeAnswerKeyInput].forEach((element) => {
+liveInputs.forEach((element) => {
   element.addEventListener("input", renderPreview);
   element.addEventListener("change", renderPreview);
 });
@@ -57,6 +66,8 @@ function addQuestion(data = {}) {
   questionsContainer.appendChild(fragment);
   renumberQuestions();
   renderPreview();
+
+  if (!data.question) questionText.focus();
 }
 
 function renumberQuestions() {
@@ -79,7 +90,7 @@ function getQuestions() {
 }
 
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (character) => {
+  return String(value).replace(/[&<>"']/g, (character) => {
     const entities = {
       "&": "&amp;",
       "<": "&lt;",
@@ -91,82 +102,33 @@ function escapeHtml(value) {
   });
 }
 
-function escapeXml(value) {
-  return value.replace(/[&<>"']/g, (character) => {
-    const entities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&apos;"
-    };
-    return entities[character];
-  });
-}
+function makeWatermarkLayer(text) {
+  if (!text) return "";
 
-function makeWatermarkDataUrl(text) {
-  if (!text) return "none";
+  const repeated = Array.from({ length: 35 }, () =>
+    `<span>${escapeHtml(text)}</span>`
+  ).join("");
 
-  const safeText = escapeXml(text);
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="360" height="250" viewBox="0 0 360 250">
-      <text x="180" y="125"
-        text-anchor="middle"
-        dominant-baseline="middle"
-        transform="rotate(-42 180 125)"
-        font-family="Arial, Helvetica, sans-serif"
-        font-size="27"
-        font-weight="400"
-        letter-spacing="1"
-        fill="#c9cdd3"
-        fill-opacity="0.42">${safeText}</text>
-    </svg>`;
-
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
-function applyPreviewWatermark() {
-  const watermark = watermarkInput.value.trim();
-  preview.style.backgroundImage = makeWatermarkDataUrl(watermark);
-  preview.style.backgroundSize = watermark ? "360px 250px" : "auto";
+  return `<div class="watermark-layer" aria-hidden="true">${repeated}</div>`;
 }
 
 function renderPreview() {
-  applyPreviewWatermark();
-
   const title = titleInput.value.trim() || "Multiple Choice Worksheet";
   const subtitle = subtitleInput.value.trim();
+  const watermark = watermarkInput.value.trim();
   const nameLabel = nameLabelInput.value.trim() || "Name";
   const dateLabel = dateLabelInput.value.trim() || "Date";
-  const questions = getQuestions();
   const letters = ["A", "B", "C", "D"];
 
-  const completedQuestions = questions.filter(
+  const questions = getQuestions().filter(
     (item) => item.question || item.answers.some(Boolean)
   );
 
   const subtitleHtml = subtitle
-    ? `<div class="preview-subtitle">${escapeHtml(subtitle)}</div>`
+    ? `<p class="preview-subtitle">${escapeHtml(subtitle)}</p>`
     : "";
 
-  const studentLinesHtml = `
-    <div class="student-lines">
-      <div class="student-line">${escapeHtml(nameLabel)}:</div>
-      <div class="student-line">${escapeHtml(dateLabel)}:</div>
-    </div>
-  `;
-
-  if (!completedQuestions.length) {
-    preview.innerHTML = `
-      <h1 class="preview-title">${escapeHtml(title)}</h1>
-      ${subtitleHtml}
-      ${studentLinesHtml}
-      <p class="empty-preview">Add a question to begin building the worksheet.</p>
-    `;
-    return;
-  }
-
-  const questionHtml = completedQuestions.map((item, index) => {
+  const questionHtml = questions.map((item, index) => {
     const answersHtml = item.answers.map((answer, answerIndex) => `
       <div class="preview-answer">${letters[answerIndex]}. ${escapeHtml(answer || "________________________")}</div>
     `).join("");
@@ -179,9 +141,13 @@ function renderPreview() {
     `;
   }).join("");
 
+  const emptyHtml = questions.length
+    ? ""
+    : `<p class="empty-preview">Add a question to begin building the worksheet.</p>`;
+
   let answerKeyHtml = "";
-  if (includeAnswerKeyInput.checked) {
-    const keyItems = completedQuestions.map((item, index) => {
+  if (includeAnswerKeyInput.checked && questions.length) {
+    const keyItems = questions.map((item, index) => {
       const answer = item.correctIndex === null ? "—" : letters[item.correctIndex];
       return `<div>${index + 1}. ${answer}</div>`;
     }).join("");
@@ -195,11 +161,18 @@ function renderPreview() {
   }
 
   preview.innerHTML = `
-    <h1 class="preview-title">${escapeHtml(title)}</h1>
-    ${subtitleHtml}
-    ${studentLinesHtml}
-    ${questionHtml}
-    ${answerKeyHtml}
+    ${makeWatermarkLayer(watermark)}
+    <div class="worksheet-content">
+      <h1 class="preview-title">${escapeHtml(title)}</h1>
+      ${subtitleHtml}
+      <div class="student-lines">
+        <div class="student-line">${escapeHtml(nameLabel)}:</div>
+        <div class="student-line">${escapeHtml(dateLabel)}:</div>
+      </div>
+      ${questionHtml}
+      ${emptyHtml}
+      ${answerKeyHtml}
+    </div>
   `;
 }
 
@@ -213,11 +186,7 @@ function validateForPdf(questions) {
     (item) => !item.question || item.answers.some((answer) => !answer)
   );
 
-  if (hasIncompleteQuestion) {
-    return confirm("Some questions or answers are blank. Download the PDF anyway?");
-  }
-
-  return true;
+  return !hasIncompleteQuestion || confirm("Some questions or answers are blank. Download the PDF anyway?");
 }
 
 function downloadPdf() {
@@ -233,11 +202,7 @@ function downloadPdf() {
   }
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "pt",
-    format: "a4"
-  });
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -247,73 +212,70 @@ function downloadPdf() {
   const watermark = watermarkInput.value.trim();
   let y = 58;
 
-  const drawWatermark = () => {
+  function drawPdfWatermark() {
     if (!watermark) return;
 
+    // Keep watermark formatting isolated. Content code explicitly restores its
+    // own font and size after every possible page break.
+    doc.setTextColor(225, 225, 225);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(22);
-    doc.setTextColor(220, 223, 228);
 
-    const horizontalGap = 245;
-    const verticalGap = 175;
-
-    for (let row = -1; row * verticalGap < pageHeight + verticalGap; row += 1) {
-      const rowOffset = row % 2 === 0 ? 0 : horizontalGap / 2;
-      for (let x = -120 + rowOffset; x < pageWidth + 180; x += horizontalGap) {
-        const watermarkLines = doc.splitTextToSize(watermark, 220);
-        doc.text(watermarkLines, x, row * verticalGap + 90, { angle: 42, align: "center" });
+    for (let row = -20; row < pageHeight + 100; row += 115) {
+      for (let col = -100; col < pageWidth + 150; col += 235) {
+        doc.text(watermark, col, row, { angle: 45 });
       }
     }
 
     doc.setTextColor(0, 0, 0);
-  };
+  }
 
-  const addPage = () => {
+  function addPage() {
     doc.addPage();
-    drawWatermark();
+    drawPdfWatermark();
     y = 58;
-  };
+  }
 
-  const ensureSpace = (needed) => {
+  function ensureSpace(needed) {
     if (y + needed > pageHeight - margin) addPage();
-  };
+  }
 
-  const drawTitleAndStudentLines = () => {
-    const title = titleInput.value.trim() || "Multiple Choice Worksheet";
-    const subtitle = subtitleInput.value.trim();
+  drawPdfWatermark();
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    const titleLines = doc.splitTextToSize(title, usableWidth);
-    doc.text(titleLines, pageWidth / 2, y, { align: "center" });
-    y += titleLines.length * 22 + 8;
+  const title = titleInput.value.trim() || "Multiple Choice Worksheet";
+  const subtitle = subtitleInput.value.trim();
 
-    if (subtitle) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      const subtitleLines = doc.splitTextToSize(subtitle, usableWidth);
-      doc.text(subtitleLines, pageWidth / 2, y, { align: "center" });
-      y += subtitleLines.length * 15 + 14;
-    } else {
-      y += 12;
-    }
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  const titleLines = doc.splitTextToSize(title, usableWidth);
+  doc.text(titleLines, pageWidth / 2, y, { align: "center" });
+  y += titleLines.length * 22 + 8;
 
+  if (subtitle) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    const nameLabel = nameLabelInput.value.trim() || "Name";
-    const dateLabel = dateLabelInput.value.trim() || "Date";
+    const subtitleLines = doc.splitTextToSize(subtitle, usableWidth);
+    doc.text(subtitleLines, pageWidth / 2, y, { align: "center" });
+    y += subtitleLines.length * 15 + 14;
+  } else {
+    y += 12;
+  }
 
-    doc.text(`${nameLabel}:`, margin, y);
-    doc.line(margin + 38, y + 2, pageWidth / 2 + 35, y + 2);
-    doc.text(`${dateLabel}:`, pageWidth / 2 + 55, y);
-    doc.line(pageWidth / 2 + 88, y + 2, pageWidth - margin, y + 2);
-    y += 34;
-  };
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const nameLabel = nameLabelInput.value.trim() || "Name";
+  const dateLabel = dateLabelInput.value.trim() || "Date";
 
-  drawWatermark();
-  drawTitleAndStudentLines();
+  doc.text(`${nameLabel}:`, margin, y);
+  doc.line(margin + 38, y + 2, pageWidth / 2 + 35, y + 2);
+  doc.text(`${dateLabel}:`, pageWidth / 2 + 55, y);
+  doc.line(pageWidth / 2 + 88, y + 2, pageWidth - margin, y + 2);
+  y += 34;
 
   questions.forEach((item, questionIndex) => {
+    // Calculate wrapping with the intended content font, not the watermark font.
+    doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11.5);
 
@@ -322,6 +284,8 @@ function downloadPdf() {
       usableWidth
     );
 
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
     const answerLineSets = item.answers.map((answer, answerIndex) =>
       doc.splitTextToSize(
         `${letters[answerIndex]}. ${answer || "________________________"}`,
@@ -336,12 +300,17 @@ function downloadPdf() {
 
     ensureSpace(neededHeight);
 
+    // Critical fix: addPage() draws the watermark and changes PDF font state.
+    // Restore the question font AFTER ensureSpace(), so a question beginning on
+    // a new page can never inherit the large watermark font.
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11.5);
     doc.text(questionLines, margin, y);
     y += questionLines.length * 15 + 8;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10.5);
-
     answerLineSets.forEach((lines) => {
       doc.text(lines, margin + 20, y);
       y += lines.length * 14 + 5;
@@ -352,23 +321,24 @@ function downloadPdf() {
 
   if (includeAnswerKeyInput.checked) {
     addPage();
+    doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.text("Answer Key", pageWidth / 2, y, { align: "center" });
     y += 32;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-
     questions.forEach((item, index) => {
       ensureSpace(20);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
       const answer = item.correctIndex === null ? "—" : letters[item.correctIndex];
       doc.text(`${index + 1}. ${answer}`, margin, y);
       y += 18;
     });
   }
 
-  const safeTitle = (titleInput.value.trim() || "worksheet")
+  const safeTitle = title
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
@@ -376,5 +346,5 @@ function downloadPdf() {
   doc.save(`${safeTitle || "worksheet"}.pdf`);
 }
 
-// Start with an empty worksheet.
+// Start with a blank worksheet.
 renderPreview();
