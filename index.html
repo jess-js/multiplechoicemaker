@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiple Choice Worksheet Maker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Multiple Choice Worksheet Maker</h1>
+      <p>Create as many questions as you need, preview the worksheet, then print or save it as a PDF.</p>
+    </div>
+  </header>
+
+  <main class="app-layout">
+    <section class="editor-panel">
+      <div class="worksheet-settings card">
+        <h2>Worksheet details</h2>
+
+        <label>
+          Worksheet title
+          <input id="worksheetTitle" type="text" value="Multiple Choice Worksheet" />
+        </label>
+
+        <label>
+          Worksheet subtitle
+          <input id="worksheetSubtitle" type="text" placeholder="Optional subtitle" />
+        </label>
+
+        <label>
+          Watermark text
+          <input id="watermarkText" type="text" placeholder="Optional tiled background watermark" />
+        </label>
+
+        <div class="two-column">
+          <label>
+            Name line label
+            <input id="nameLabel" type="text" value="Name" />
+          </label>
+
+          <label>
+            Date line label
+            <input id="dateLabel" type="text" value="Date" />
+          </label>
+        </div>
+
+        <label class="checkbox-row">
+          <input id="includeAnswerKey" type="checkbox" />
+          Include an answer key on a final page
+        </label>
+      </div>
+
+      <div class="section-heading">
+        <h2>Questions</h2>
+      </div>
+
+      <div id="questionsContainer"></div>
+
+      <div class="add-question-row">
+        <button id="addQuestionBtn" class="primary-button" type="button">+ Add question</button>
+      </div>
+
+      <div class="action-bar">
+        <button id="previewBtn" class="secondary-button" type="button">Update preview</button>
+        <button id="printBtn" class="secondary-button" type="button">Print / Save as PDF</button>
+        <button id="downloadPdfBtn" class="primary-button" type="button">Download PDF</button>
+      </div>
+    </section>
+
+    <aside class="preview-panel">
+      <div class="preview-label">Preview</div>
+      <div id="worksheetPreview" class="worksheet-page"></div>
+    </aside>
+  </main>
+
+  <template id="questionTemplate">
+    <article class="question-card card">
+      <div class="question-card-header">
+        <h3>Question <span class="question-number"></span></h3>
+        <button class="remove-question-button" type="button" aria-label="Remove question">Remove</button>
+      </div>
+
+      <label>
+        Question text
+        <textarea class="question-text" rows="3" placeholder="Enter the question"></textarea>
+      </label>
+
+      <div class="answers-grid">
+        <label class="answer-editor">
+          <span><input class="correct-answer" type="radio" value="0" /> A</span>
+          <input class="answer-text" type="text" placeholder="Answer A" />
+        </label>
+
+        <label class="answer-editor">
+          <span><input class="correct-answer" type="radio" value="1" /> B</span>
+          <input class="answer-text" type="text" placeholder="Answer B" />
+        </label>
+
+        <label class="answer-editor">
+          <span><input class="correct-answer" type="radio" value="2" /> C</span>
+          <input class="answer-text" type="text" placeholder="Answer C" />
+        </label>
+
+        <label class="answer-editor">
+          <span><input class="correct-answer" type="radio" value="3" /> D</span>
+          <input class="answer-text" type="text" placeholder="Answer D" />
+        </label>
+      </div>
+
+      <p class="correct-answer-help">Select the radio button beside the correct answer if you want an answer key.</p>
+    </article>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
